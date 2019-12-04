@@ -57,11 +57,11 @@ func addWire(wire string) []line {
 	return lines
 }
 
-func horizontalLine(line line) bool {
+func isHorizontalLine(line line) bool {
 	return line.a.y == line.b.y
 }
 
-func verticalLine(line line) bool {
+func isVerticalLine(line line) bool {
 	return line.a.x == line.b.x
 }
 
@@ -80,13 +80,13 @@ func between(x int64, a int64, b int64) bool {
 }
 
 func linesCross(lineA line, lineB line) point {
-	if (horizontalLine(lineA) && horizontalLine(lineB)) || (verticalLine(lineA) && verticalLine(lineB)) {
+	if (isHorizontalLine(lineA) && isHorizontalLine(lineB)) || (isVerticalLine(lineA) && isVerticalLine(lineB)) {
 		return point{0, 0}
 	} else {
 		var hLine line
 		var vLine line
 
-		if horizontalLine(lineA) {
+		if isHorizontalLine(lineA) {
 			hLine = lineA
 			vLine = lineB
 		} else {

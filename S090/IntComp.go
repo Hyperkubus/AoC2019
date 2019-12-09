@@ -17,6 +17,7 @@ func check(err error) {
 }
 
 func terminate(band *[]int, pos *int) int {
+	debugprint("TERM")
 	return (*band)[0]
 }
 
@@ -24,6 +25,7 @@ func add(band *[]int, pos *int, modes int) {
 	arg1 := getArgument(band, pos, modes, 1)
 	arg2 := getArgument(band, pos, modes, 2)
 	arg3 := putArgument(band, pos, modes, 3)
+	debugprint("ADDI", (*band)[*pos:*pos+4], arg1, arg2, arg3)
 	writeAddr(band, &arg3, arg1+arg2)
 	//(*band)[arg3] = arg1 + arg2
 	*pos += 4
@@ -34,6 +36,7 @@ func mul(band *[]int, pos *int, modes int) {
 	arg1 := getArgument(band, pos, modes, 1)
 	arg2 := getArgument(band, pos, modes, 2)
 	arg3 := putArgument(band, pos, modes, 3)
+	debugprint("MULT", (*band)[*pos:*pos+4], arg1, arg2, arg3)
 	writeAddr(band, &arg3, arg1*arg2)
 	//(*band)[arg3] = arg1 * arg2
 	*pos += 4
@@ -41,8 +44,11 @@ func mul(band *[]int, pos *int, modes int) {
 }
 
 func jumpIfTrue(band *[]int, pos *int, modes int) {
-	if getArgument(band, pos, modes, 1) != 0 {
-		*pos = getArgument(band, pos, modes, 2)
+	arg1 := getArgument(band, pos, modes, 1)
+	arg2 := getArgument(band, pos, modes, 2)
+	debugprint("JUMP", (*band)[*pos:*pos+3], arg1, arg2)
+	if arg1 != 0 {
+		*pos = arg2
 	} else {
 		*pos += 3
 	}
@@ -50,8 +56,11 @@ func jumpIfTrue(band *[]int, pos *int, modes int) {
 }
 
 func jumpIfFalse(band *[]int, pos *int, modes int) {
-	if getArgument(band, pos, modes, 1) == 0 {
-		*pos = getArgument(band, pos, modes, 2)
+	arg1 := getArgument(band, pos, modes, 1)
+	arg2 := getArgument(band, pos, modes, 2)
+	debugprint("JUMF", (*band)[*pos:*pos+3], arg1, arg2)
+	if arg1 == 0 {
+		*pos = arg2
 	} else {
 		*pos += 3
 	}
@@ -64,15 +73,14 @@ func getArgument(band *[]int, pos *int, modes int, i int) int {
 	}
 	newPos := (*pos) + i
 	value := readAddr(band, &newPos)
-	tmp := int(math.Pow(10, float64(i-1)))
-	tmp2 := int(math.Pow(10, float64(i)))
-	modes /= tmp
+	modes /= int(math.Pow(10, float64(i-1)))
+	modes %= 10
 	var out int
-	if modes%(tmp2) == 0 {
+	if modes == 0 {
 		//positional mode
 		out = readAddr(band, &value)
 		//fmt.Println("Getting Argument",i,"as Positional",value,out)
-	} else if modes%(tmp2) == 1 {
+	} else if modes == 1 {
 		out = value
 		//fmt.Println("Getting Argument",i,"as Immediate:",out)
 		//immediate mode
@@ -91,15 +99,14 @@ func putArgument(band *[]int, pos *int, modes int, i int) int {
 	}
 	newPos := (*pos) + i
 	value := readAddr(band, &newPos)
-	tmp := int(math.Pow(10, float64(i-1)))
-	tmp2 := int(math.Pow(10, float64(i)))
-	modes /= tmp
+	modes /= int(math.Pow(10, float64(i-1)))
+	modes %= int(math.Pow(10, float64(i)))
 	var out int
-	if modes%(tmp2) == 0 {
+	if modes == 0 {
 		//positional mode
 		out = value
 		//fmt.Println("Getting Argument",i,"as Positional",value,out)
-	} else if modes%(tmp2) == 1 {
+	} else if modes == 1 {
 		//immediate mode
 		log.Fatal("Trying to write in Immediate Mode")
 		//fmt.Println("Getting Argument",i,"as Immediate:",out)
@@ -116,6 +123,7 @@ func lessThan(band *[]int, pos *int, modes int) {
 	arg2 := getArgument(band, pos, modes, 2)
 	arg3 := putArgument(band, pos, modes, 3)
 
+	debugprint("LESS", (*band)[*pos:*pos+4], arg1, arg2, arg3)
 	if arg1 < arg2 {
 		writeAddr(band, &arg3, 1)
 		//(*band)[arg3] = 1
@@ -132,6 +140,7 @@ func equals(band *[]int, pos *int, modes int) {
 	arg2 := getArgument(band, pos, modes, 2)
 	arg3 := putArgument(band, pos, modes, 3)
 
+	debugprint("EQUA", (*band)[*pos:*pos+4], arg1, arg2, arg3)
 	if arg1 == arg2 {
 		writeAddr(band, &arg3, 1)
 	} else {
@@ -143,6 +152,7 @@ func equals(band *[]int, pos *int, modes int) {
 
 func setBase(band *[]int, pos *int, modes int) {
 	arg1 := getArgument(band, pos, modes, 1)
+	debugprint("SETB", (*band)[*pos:*pos+2], arg1)
 	*relativeBase += arg1
 	*pos += 2
 	return
@@ -150,6 +160,7 @@ func setBase(band *[]int, pos *int, modes int) {
 
 func input(band *[]int, pos *int, modes int) {
 	arg1 := putArgument(band, pos, modes, 1)
+	debugprint("READ", (*band)[*pos:*pos+2], arg1)
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("-> ")
 	text, _ := reader.ReadString('\n')
@@ -164,6 +175,7 @@ func input(band *[]int, pos *int, modes int) {
 
 func output(band *[]int, pos *int, modes int) {
 	arg1 := getArgument(band, pos, modes, 1)
+	debugprint("WRIT", (*band)[*pos:*pos+2], arg1)
 	fmt.Println(arg1)
 	*pos += 2
 	return
@@ -209,44 +221,41 @@ func run(band []int) int {
 	debugprint(band)
 	for true {
 		opcode, modes := parseOpCode(&band, &iP)
+		if modes > 99 {
+			debugBreak = true
+
+		}
+		if debugBreak {
+			debugprint()
+		}
 		switch opcode {
 		case 99:
-			debugprint("Terminate")
 			return terminate(&band, &iP)
 		case 1:
-			debugprint("Add", modes)
 			add(&band, &iP, modes)
 			break
 		case 2:
-			debugprint("Mul", modes)
 			mul(&band, &iP, modes)
 			break
 		case 3:
-			debugprint("Read", modes)
 			input(&band, &iP, modes)
 			break
 		case 4:
-			debugprint("Write", modes)
 			output(&band, &iP, modes)
 			break
 		case 5:
-			debugprint("JumpIfTrue")
 			jumpIfTrue(&band, &iP, modes)
 			break
 		case 6:
-			debugprint("JumpIfFalse")
 			jumpIfFalse(&band, &iP, modes)
 			break
 		case 7:
-			debugprint("lessThan")
 			lessThan(&band, &iP, modes)
 			break
 		case 8:
-			debugprint("Equal")
 			equals(&band, &iP, modes)
 			break
 		case 9:
-			debugprint("SetBase")
 			setBase(&band, &iP, modes)
 			break
 		default:
@@ -259,6 +268,7 @@ func run(band []int) int {
 
 var relativeBase *int = new(int)
 var globalDebug = false
+var debugBreak bool = false
 
 /** executive stuff below **/
 

@@ -175,6 +175,15 @@ func bandOutput(band *[]int, pos *int, modes int) {
 	return
 }
 
+func channelInput(band *[]int, pos *int, modes int) {
+	arg1 := putArgument(band, pos, modes, 1)
+	debugprint("READ", (*band)[*pos:*pos+2], arg1)
+	value := pop(inputBand)
+	writeAddr(band, &arg1, value)
+	*pos += 2
+	return
+}
+
 func input(band *[]int, pos *int, modes int) {
 	arg1 := putArgument(band, pos, modes, 1)
 	debugprint("READ", (*band)[*pos:*pos+2], arg1)
@@ -304,7 +313,7 @@ var outputBand *[]int = new([]int)
 /** settings **/
 var globalDebug = false
 var debugBreak = false
-var bandMode = true
+var bandMode = false
 
 /** executive stuff below **/
 
@@ -433,5 +442,5 @@ func boostBand() []int {
 }
 
 func main() {
-	day7()
+	run(day7Band())
 }

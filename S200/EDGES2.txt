@@ -1,0 +1,41 @@
+CN-05-XZ
+
+CN-61-MF
+XZ-63-MF
+
+JI-57-UD
+XY-43-HL
+BU-41-UI
+UD-57-DR
+JM-55-XY
+DR-67-HP
+HP-59-FN
+MF-47-XY
+TA-61-YW
+UI-53-TA
+ZZ-07-UI
+BU-45-TJ
+TC-43-FN
+JI-57-FM
+YW-51-FM
+HL-49-WI
+FA-61-JM
+
+490 TO HIGH
+489 TO HIGH
+488 NOPE
+487 NOPE
+483 NOPE
+482 YEP
+478 TO LOW
+
+
+
+AA-05-EH-53-WI-49-HL-43-XY-43-MF-61-CN 254
+AA-53-BW-39-HM-39-CN 131
+
+CN-59-EY           59
+CN-05-XZ-61-EY     66
+EY-55-MR-45-NU-55-VE-45-TJ-45-BU-41-UI 286
+                                                UI-7-ZZ 7           293
+                                                UI-53-TA-49-ZZ 102  388

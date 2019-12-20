@@ -1,0 +1,363 @@
+package old
+
+import (
+	"bufio"
+	"fmt"
+	"log"
+	"math"
+	"os"
+	"strconv"
+	"strings"
+)
+
+func check(err error) {
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func terminate(band *[]int, pos *int) int {
+	debugprint("TERM")
+	return (*band)[0]
+}
+
+func add(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	arg2 := getArgument(band, pos, modes, 2)
+	arg3 := putArgument(band, pos, modes, 3)
+	debugprint("ADDI", (*band)[*pos:*pos+4], arg1, arg2, arg3)
+	writeAddr(band, &arg3, arg1+arg2)
+	//(*band)[arg3] = arg1 + arg2
+	*pos += 4
+	return
+}
+
+func mul(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	arg2 := getArgument(band, pos, modes, 2)
+	arg3 := putArgument(band, pos, modes, 3)
+	debugprint("MULT", (*band)[*pos:*pos+4], arg1, arg2, arg3)
+	writeAddr(band, &arg3, arg1*arg2)
+	//(*band)[arg3] = arg1 * arg2
+	*pos += 4
+	return
+}
+
+func jumpIfTrue(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	arg2 := getArgument(band, pos, modes, 2)
+	debugprint("JUMP", (*band)[*pos:*pos+3], arg1, arg2)
+	if arg1 != 0 {
+		*pos = arg2
+	} else {
+		*pos += 3
+	}
+	return
+}
+
+func jumpIfFalse(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	arg2 := getArgument(band, pos, modes, 2)
+	debugprint("JUMF", (*band)[*pos:*pos+3], arg1, arg2)
+	if arg1 == 0 {
+		*pos = arg2
+	} else {
+		*pos += 3
+	}
+	return
+}
+
+func getArgument(band *[]int, pos *int, modes int, i int) int {
+	if i < 1 {
+		log.Fatal("argument position must be at least 1")
+	}
+	newPos := (*pos) + i
+	value := readAddr(band, &newPos)
+	modes /= int(math.Pow(10, float64(i-1)))
+	modes %= 10
+	var out int
+	if modes == 0 {
+		//positional mode
+		out = readAddr(band, &value)
+		//fmt.Println("Getting Argument",i,"as Positional",value,out)
+	} else if modes == 1 {
+		out = value
+		//fmt.Println("Getting Argument",i,"as Immediate:",out)
+		//immediate mode
+	} else {
+		value += *relativeBase
+		out = readAddr(band, &value)
+		//fmt.Println("Getting Argument",i,"as Relative:",out)
+		//relative mode
+	}
+	return out
+}
+
+func putArgument(band *[]int, pos *int, modes int, i int) int {
+	if i < 1 {
+		log.Fatal("argument position must be at least 1")
+	}
+	newPos := (*pos) + i
+	value := readAddr(band, &newPos)
+	modes /= int(math.Pow(10, float64(i-1)))
+	modes %= int(math.Pow(10, float64(i)))
+	var out int
+	if modes == 0 {
+		//positional mode
+		out = value
+		//fmt.Println("Getting Argument",i,"as Positional",value,out)
+	} else if modes == 1 {
+		//immediate mode
+		log.Fatal("Trying to write in Immediate Mode")
+		//fmt.Println("Getting Argument",i,"as Immediate:",out)
+	} else {
+		//relative mode
+		out = *relativeBase + value
+		//fmt.Println("Getting Argument",i,"as Relative:",out)
+	}
+	return out
+}
+
+func lessThan(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	arg2 := getArgument(band, pos, modes, 2)
+	arg3 := putArgument(band, pos, modes, 3)
+
+	debugprint("LESS", (*band)[*pos:*pos+4], arg1, arg2, arg3)
+	if arg1 < arg2 {
+		writeAddr(band, &arg3, 1)
+		//(*band)[arg3] = 1
+	} else {
+		writeAddr(band, &arg3, 0)
+		//(*band)[arg3] = 0
+	}
+	*pos += 4
+	return
+}
+
+func equals(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	arg2 := getArgument(band, pos, modes, 2)
+	arg3 := putArgument(band, pos, modes, 3)
+
+	debugprint("EQUA", (*band)[*pos:*pos+4], arg1, arg2, arg3)
+	if arg1 == arg2 {
+		writeAddr(band, &arg3, 1)
+	} else {
+		writeAddr(band, &arg3, 0)
+	}
+	*pos += 4
+	return
+}
+
+func setBase(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	debugprint("SETB", (*band)[*pos:*pos+2], arg1)
+	*relativeBase += arg1
+	*pos += 2
+	return
+}
+
+func bandInput(band *[]int, pos *int, modes int) {
+	arg1 := putArgument(band, pos, modes, 1)
+	debugprint("READ", (*band)[*pos:*pos+2], arg1)
+	value := pop(inputBand)
+	writeAddr(band, &arg1, value)
+	*pos += 2
+	return
+}
+
+func bandOutput(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	debugprint("WRIT", (*band)[*pos:*pos+2], arg1)
+	*outputBand = append(*outputBand, arg1)
+	*pos += 2
+	return
+}
+
+func input(band *[]int, pos *int, modes int) {
+	arg1 := putArgument(band, pos, modes, 1)
+	debugprint("READ", (*band)[*pos:*pos+2], arg1)
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("-> ")
+	text, _ := reader.ReadString('\n')
+	text = strings.Replace(text, "\n", "", -1)
+	value, err := strconv.Atoi(text)
+	check(err)
+	writeAddr(band, &arg1, value)
+	//(*band)[arg1] = value
+	*pos += 2
+	return
+}
+
+func output(band *[]int, pos *int, modes int) {
+	arg1 := getArgument(band, pos, modes, 1)
+	debugprint("WRIT", (*band)[*pos:*pos+2], arg1)
+	fmt.Println(arg1)
+	*pos += 2
+	return
+}
+
+func parseOpCode(band *[]int, pos *int) (int, int) {
+	fullcode := (*band)[*pos]
+	//fmt.Println(fullcode)
+	opcode := fullcode % 100
+	modes := fullcode / 100
+	return opcode, modes
+}
+
+func writeAddr(band *[]int, pos *int, value int) {
+	if len(*band) <= *pos {
+		for i := len(*band); i <= *pos; i++ {
+			*band = append(*band, 0)
+		}
+	}
+	(*band)[*pos] = value
+	return
+}
+
+func readAddr(band *[]int, pos *int) int {
+	//fmt.Println("value at",*pos,(*band)[*pos])
+	if len(*band) < *pos {
+		for i := len(*band); i <= *pos; i++ {
+			*band = append(*band, 0)
+		}
+	}
+	return (*band)[*pos]
+}
+
+func debugprint(a ...interface{}) {
+	if globalDebug {
+		fmt.Println(a)
+	}
+}
+
+func run(band []int) int {
+	*relativeBase = 0
+	iP := 0
+	debugprint(band)
+	for true {
+		opcode, modes := parseOpCode(&band, &iP)
+		if modes > 99 {
+			debugBreak = true
+
+		}
+		if debugBreak {
+			debugprint()
+		}
+		switch opcode {
+		case 99:
+			return terminate(&band, &iP)
+		case 1:
+			add(&band, &iP, modes)
+			break
+		case 2:
+			mul(&band, &iP, modes)
+			break
+		case 3:
+			if bandMode {
+				bandInput(&band, &iP, modes)
+			} else {
+				input(&band, &iP, modes)
+			}
+			break
+		case 4:
+			if bandMode {
+				bandOutput(&band, &iP, modes)
+			} else {
+				output(&band, &iP, modes)
+			}
+			break
+		case 5:
+			jumpIfTrue(&band, &iP, modes)
+			break
+		case 6:
+			jumpIfFalse(&band, &iP, modes)
+			break
+		case 7:
+			lessThan(&band, &iP, modes)
+			break
+		case 8:
+			equals(&band, &iP, modes)
+			break
+		case 9:
+			setBase(&band, &iP, modes)
+			break
+		default:
+			log.Fatal("Unsupported OpCode")
+			return -1
+		}
+	}
+	return -2 //this should NEVER happen
+}
+
+func pop(a *[]int) int {
+	var x int
+	x, *a = (*a)[0], (*a)[1:]
+	return x
+}
+
+var relativeBase *int = new(int)
+var inputBand *[]int = new([]int)
+var outputBand *[]int = new([]int)
+
+/** settings **/
+var globalDebug = false
+var debugBreak = false
+var bandMode = false
+
+/** executive stuff below **/
+
+func day7Band() []int {
+	return []int{3, 8, 1001, 8, 10, 8, 105, 1, 0, 0, 21, 34, 51, 64, 81, 102, 183, 264, 345, 426, 99999, 3, 9, 102, 2, 9, 9, 1001, 9, 4, 9, 4, 9, 99, 3, 9, 101, 4, 9, 9, 102, 5, 9, 9, 1001, 9, 2, 9, 4, 9, 99, 3, 9, 101, 3, 9, 9, 1002, 9, 5, 9, 4, 9, 99, 3, 9, 102, 3, 9, 9, 101, 3, 9, 9, 1002, 9, 4, 9, 4, 9, 99, 3, 9, 1002, 9, 3, 9, 1001, 9, 5, 9, 1002, 9, 5, 9, 101, 3, 9, 9, 4, 9, 99, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 99, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 99, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 99, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 99, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 101, 2, 9, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 1001, 9, 1, 9, 4, 9, 3, 9, 1002, 9, 2, 9, 4, 9, 3, 9, 1001, 9, 2, 9, 4, 9, 3, 9, 102, 2, 9, 9, 4, 9, 3, 9, 101, 1, 9, 9, 4, 9, 99}
+}
+
+func day7() {
+	var ra, rb, rc, rd, re int
+	out := 0
+	for a := 0; a < 5; a++ {
+		*inputBand = []int{a, 0}
+		run(day7Band())
+		ra = pop(outputBand)
+		for b := 0; b < 5; b++ {
+			if a == b {
+				continue
+			}
+			*inputBand = []int{b, ra}
+			run(day7Band())
+			rb = pop(outputBand)
+			for c := 0; c < 5; c++ {
+				if a == c || b == c {
+					continue
+				}
+				*inputBand = []int{c, rb}
+				run(day7Band())
+				rc = pop(outputBand)
+				for d := 0; d < 5; d++ {
+					if a == d || b == d || c == d {
+						continue
+					}
+					*inputBand = []int{d, rc}
+					run(day7Band())
+					rd = pop(outputBand)
+					for e := 0; e < 5; e++ {
+						if a == e || b == e || c == e || d == e {
+							continue
+						}
+						*inputBand = []int{e, rd}
+						run(day7Band())
+						re = pop(outputBand)
+						if re > out {
+							out = re
+						}
+					}
+				}
+			}
+		}
+	}
+	fmt.Println("BoostSignal:", out)
+}
+
+func main() {
+	day7()
+}

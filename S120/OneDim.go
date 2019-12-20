@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"hyperkubus.dev/intcomp"
 	"math"
 	"time"
 )
@@ -43,7 +44,7 @@ func (s system) print() {
 	fmt.Printf("\n")
 }
 
-func findrepetition(s system) (int, int) {
+func findrepetition(s system) int {
 	hashmap := map[int]int{}
 	startHash := s.hash()
 	i := 1
@@ -58,8 +59,7 @@ func findrepetition(s system) (int, int) {
 		hashmap[hash] = i
 		s.step()
 	}
-	fmt.Println(hashmap[hash])
-	return hashmap[hash], i
+	return i
 }
 
 func GCD(a, b int) int {
@@ -94,11 +94,17 @@ func main() {
 		p: []int{-6, -11, 0, 6},
 		v: []int{0, 0, 0, 0},
 	}
-	start := time.Now()
-	_, x := findrepetition(sysX)
-	_, y := findrepetition(sysY)
-	_, z := findrepetition(sysZ)
-	fmt.Println(LCM(x, y, z))
-	fmt.Println(time.Since(start))
-
+	delta, _ := time.ParseDuration("3s")
+	for i := 0; i < 100; i++ {
+		start := time.Now()
+		x := findrepetition(sysX)
+		y := findrepetition(sysY)
+		z := findrepetition(sysZ)
+		LCM(x, y, z)
+		ttime := time.Since(start)
+		if ttime < delta {
+			delta = ttime
+		}
+	}
+	fmt.Println(delta)
 }
